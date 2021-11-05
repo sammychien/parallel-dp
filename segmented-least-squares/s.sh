@@ -1,5 +1,5 @@
 #!/bin/bash
 
-g++ main.cpp -fopenmp
+g++ main.cpp -fopenmp -o main.out
 
-./a.exe
+./main.out
