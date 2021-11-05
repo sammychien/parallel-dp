@@ -1,4 +1,4 @@
-#include <bits/stdc++.h>
+#include <iostream>
 #include <chrono>
 
 void weightedLISSeq() {}
@@ -19,9 +19,9 @@ int main() {
 
     /* Getting number of milliseconds as an integer. */
     duration<double, std::milli> ms_double_seq = t2 - t1;
-    
+
     duration<double, std::milli> ms_double_par = t4 - t3;
-    
+
 
     std::cout << ms_double_seq.count() << "ms\n";
     std::cout << ms_double_par.count() << "ms\n";
