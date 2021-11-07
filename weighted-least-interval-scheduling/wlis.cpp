@@ -5,6 +5,7 @@
 #include "wlis.h"
 #include <algorithm>
 #include <map>
+#include "omp.h"
 
 class Interval {
 public:
@@ -137,6 +138,150 @@ class WLIS {
     }
 
     std::vector<Interval> wlisParDP() {
+        // Set num threads
+        bool debug = false;
+        int par_enabled = 1;
+        omp_set_num_threads(4);
+
+        // First, sort the intervals in ascending order of their finish times
+        std::vector<Interval> intervals = this->inputIntervals;
+        int numIntervals = intervals.size();
+        std::sort (intervals.begin(), intervals.end());
+        #pragma omp parallel for if(par_enabled)
+        for (int i = 0; i < numIntervals; i++) {
+            intervals.at(i).setId(i);
+        }
+
+        // Next, calculate P(j), where P(j) is the rightmost interval i such that i and j are compatible (f_i <= s_j)
+        // We can do this in parallel
+        int P [numIntervals];
+        #pragma omp parallel for if(par_enabled)
+        for (int i = 0; i < numIntervals; i++) {
+            Interval interval = intervals.at(i);
+            P[i] = getP(intervals, interval);
+        }
+
+        // Then, we use an LLP algorithm to find the global state G
+        int G [numIntervals+1];
+        int GPrev [numIntervals+1];
+        bool diffs [numIntervals];
+
+        G[0] = 0;
+        GPrev[0] = 0;
+
+        #pragma omp parallel for if(par_enabled)
+        for (int i = 0; i < numIntervals; i++) {
+            G[i+1] = 0;
+            GPrev[i+1] = -1;
+            diffs[i] = true;
+        }
+
+        bool diffExists = true;
+        int count = 0;
+
+        while (diffExists) {
+            if (debug) {
+                std::cout << "----------------------------------------" << std::endl;
+                std::cout << "DEBUG:" << std::endl;
+                std::cout << "Diffs Array:" << std::endl;
+                for (int i = 0; i < numIntervals; i++) {
+                    if (diffs[i]) {
+                        std::cout << "T "; 
+                    } else {
+                        std::cout << "F ";
+                    }
+                }
+                std::cout << std::endl;
+
+                std::cout << "G Array:" << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << i << " ";
+                }
+                std::cout << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << G[i] << " ";
+                }
+                std::cout << std::endl;
+
+                std::cout << "GPrev Array:" << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << i << " ";
+                }
+                std::cout << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << GPrev[i] << " ";
+                }
+                std::cout << std::endl;
+            }
+            
+            int GCalc [numIntervals];
+            #pragma omp parallel if(par_enabled)
+            {
+                #pragma omp for
+                for (int i = 0; i < numIntervals; i++) {
+                    if (G[i+1] != GPrev[i+1]) {
+                        // update 
+                        if (debug)
+                            std::cout << std::to_string(intervals.at(i).weight) << " " << std::to_string(P[i]+1) << " " << std::to_string(G[P[i]+1]) << " | " << G[i] << std::endl;
+                        GCalc[i] = std::max(intervals.at(i).weight + G[P[i]+1], G[i]);
+                        diffs[i] = true;
+                    } else {
+                        diffs[i] = false;
+                    }
+                }
+                
+                #pragma omp for
+                for (int i = 0; i < numIntervals; i++) {
+                    GPrev[i+1] = G[i+1];
+                    G[i+1] = GCalc[i];
+                }
+            }
+
+
+            diffExists = false;
+            #pragma omp parallel for reduction(|:diffExists)
+            for (int i = 0; i < numIntervals; i++) {
+                diffExists |= diffs[i];
+            }
+            count++;
+
+            if (debug) {
+                std::cout << "G Array:" << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << i << " ";
+                }
+                std::cout << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << G[i] << " ";
+                }
+                std::cout << std::endl;
+
+                std::cout << "GPrev Array:" << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << i << " ";
+                }
+                std::cout << std::endl;
+                for (int i = 0; i < numIntervals+1; i++) {
+                    std::cout << GPrev[i] << " ";
+                }
+                std::cout << std::endl;
+
+                std::cout << "END DEBUG" << std::endl;
+                std::cout << "----------------------------------------" << std::endl;
+            }
+        }
+
+        for (int i = 0; i < numIntervals+1; i++) {
+            std::cout << i << " ";
+        }
+        std::cout << std::endl;
+        for (int i = 0 ; i < numIntervals+1; i++) {
+            std::cout << G[i] << " ";
+        }
+        std::cout << std::endl;
+
+        if (debug) std::cout << "count: " << std::to_string(count) << std::endl;
+
         std::vector<Interval> soln;
         return soln;
     }
@@ -173,16 +318,16 @@ int main(int argc, char *argv[]) {
     wlis.init(argv[1]);
 
     auto t1 = high_resolution_clock::now();
-    std::vector<Interval> soln = wlis.run("seq");
+    // std::vector<Interval> soln = wlis.run("seq");
     auto t2 = high_resolution_clock::now();
     
-    std::cout << "Sequential DP Solution:" << std::endl;
-    for (int i = 0; i < soln.size(); i++) {
-        std::cout << soln.at(i).toString() << std::endl;
-    }
+    // std::cout << "Sequential DP Solution:" << std::endl;
+    // for (int i = 0; i < soln.size(); i++) {
+    //     std::cout << soln.at(i).toString() << std::endl;
+    // }
 
     auto t3 = high_resolution_clock::now();
-    wlis.run("parbf");
+    // wlis.run("parbf");
     auto t4 = high_resolution_clock::now();
 
     auto t5 = high_resolution_clock::now();
