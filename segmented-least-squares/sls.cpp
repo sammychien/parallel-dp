@@ -172,13 +172,13 @@ public:
 				}
 				intercept[i][j] = (y_sum - slope[i][j] * x_sum) / double(interval);
 				
-				err[i][j] = 0;
-				
-				#pragma omp parallel for reduction(+:err[i][j])
+				double tmp_err = 0;
+				#pragma omp parallel for reduction(+:tmp_err)
 				for (int k = i; k <= j; ++k) {
 					double tmp = points[k].second - slope[i][j] * points[k].first - intercept[i][j];
-					err[i][j] += tmp * tmp;
+					tmp_err += tmp * tmp;
 				}
+				err[i][j] = tmp_err;
 			}
 		}
 		
