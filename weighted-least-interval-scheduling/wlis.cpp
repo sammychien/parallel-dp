@@ -63,10 +63,8 @@ namespace {
 class WLIS {
     
     std::vector<Interval> inputIntervals;
-    std::vector<Interval> soln;
 
     void parseInput(std::string inputFileName) {
-        std::cout << inputFileName << std::endl;
         std::ifstream infile;
         infile.open(inputFileName, std::ifstream::in);
 
@@ -222,26 +220,38 @@ int main(int argc, char *argv[]) {
     using std::chrono::duration;
     using std::chrono::milliseconds;
 
-    WLIS wlis;
-    wlis.init(argv[1]);
+    int numTrials = 10;
+    for (int i = 1; i < argc; i++) {
+        WLIS wlis;
+        wlis.init(argv[i]);
 
-    auto t1 = high_resolution_clock::now();
-    int seqResult = wlis.run("seq");
-    auto t2 = high_resolution_clock::now();
-    
-    auto t3 = high_resolution_clock::now();
-    int parResult = wlis.run("par");
-    auto t4 = high_resolution_clock::now();
+        std::vector<duration<double, std::milli>> seq_durations;
+        std::vector<duration<double, std::milli>> par_durations;
 
-    std::cout << "Sequential Result: " << std::to_string(seqResult) << std::endl; 
-    std::cout << "Parallel Result: " << std::to_string(parResult) << std::endl; 
+        std::cout << "-----------------------------------" << std::endl;
+        std::cout << "WLIS for test: " << argv[i] << std::endl;
+        for (int trial = 1; trial <= numTrials; trial++) {
+            
+            auto t1 = high_resolution_clock::now();
+            int seqResult = wlis.run("seq");
+            auto t2 = high_resolution_clock::now();
+            
+            auto t3 = high_resolution_clock::now();
+            int parResult = wlis.run("par");
+            auto t4 = high_resolution_clock::now();
 
-    /* Getting number of milliseconds as an integer. */
-    duration<double, std::milli> ms_double_seq = t2 - t1;
-    duration<double, std::milli> ms_double_par = t4 - t3;
+            /* Getting number of milliseconds as an integer. */
+            duration<double, std::milli> ms_double_seq = t2 - t1;
+            duration<double, std::milli> ms_double_par = t4 - t3;
 
-    std::cout << ms_double_seq.count() << "ms\n";
-    std::cout << ms_double_par.count() << "ms\n";
+            seq_durations.push_back(ms_double_seq);
+            par_durations.push_back(ms_double_par);
+            std::cout << ms_double_seq.count() << "\t" << ms_double_par.count() << std::endl;
+        }
 
+        std::cout << "-----------------------------------" << std::endl;
+        
+
+    }
     return 0;
 }
