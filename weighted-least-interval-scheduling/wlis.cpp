@@ -95,7 +95,7 @@ class WLIS {
         }
     }
 
-    std::vector<Interval> wlisSeq() {
+    int wlisSeq() {
         // First, sort the intervals in ascending order of their finish times
         std::vector<Interval> intervals = this->inputIntervals;
         int numIntervals = intervals.size();
@@ -129,17 +129,11 @@ class WLIS {
             }
         }
 
-        return OPT_path[numIntervals-1];
+        return OPT[numIntervals-1];
     }
 
-    std::vector<Interval> wlisParBF() {
-        std::vector<Interval> soln;
-        return soln;
-    }
-
-    std::vector<Interval> wlisParDP() {
-        // Set num threads
-        bool debug = false;
+    int wlisPar() {
+        // Settings
         int par_enabled = 1;
         omp_set_num_threads(4);
 
@@ -163,67 +157,24 @@ class WLIS {
 
         // Then, we use an LLP algorithm to find the global state G
         int G [numIntervals+1];
-        int GPrev [numIntervals+1];
         bool diffs [numIntervals];
 
         G[0] = 0;
-        GPrev[0] = 0;
-
         #pragma omp parallel for if(par_enabled)
         for (int i = 0; i < numIntervals; i++) {
             G[i+1] = 0;
-            GPrev[i+1] = -1;
             diffs[i] = true;
         }
 
         bool diffExists = true;
-        int count = 0;
-
         while (diffExists) {
-            if (debug) {
-                std::cout << "----------------------------------------" << std::endl;
-                std::cout << "DEBUG:" << std::endl;
-                std::cout << "Diffs Array:" << std::endl;
-                for (int i = 0; i < numIntervals; i++) {
-                    if (diffs[i]) {
-                        std::cout << "T "; 
-                    } else {
-                        std::cout << "F ";
-                    }
-                }
-                std::cout << std::endl;
-
-                std::cout << "G Array:" << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << i << " ";
-                }
-                std::cout << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << G[i] << " ";
-                }
-                std::cout << std::endl;
-
-                std::cout << "GPrev Array:" << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << i << " ";
-                }
-                std::cout << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << GPrev[i] << " ";
-                }
-                std::cout << std::endl;
-            }
-            
             int GCalc [numIntervals];
             #pragma omp parallel if(par_enabled)
             {
                 #pragma omp for
                 for (int i = 0; i < numIntervals; i++) {
-                    if (G[i+1] != GPrev[i+1]) {
-                        // update 
-                        if (debug)
-                            std::cout << std::to_string(intervals.at(i).weight) << " " << std::to_string(P[i]+1) << " " << std::to_string(G[P[i]+1]) << " | " << G[i] << std::endl;
-                        GCalc[i] = std::max(intervals.at(i).weight + G[P[i]+1], G[i]);
+                    GCalc[i] = std::max(intervals.at(i).weight + G[P[i]+1], G[i]);
+                    if (GCalc[i] != G[i+1]) {
                         diffs[i] = true;
                     } else {
                         diffs[i] = false;
@@ -232,58 +183,18 @@ class WLIS {
                 
                 #pragma omp for
                 for (int i = 0; i < numIntervals; i++) {
-                    GPrev[i+1] = G[i+1];
                     G[i+1] = GCalc[i];
                 }
             }
-
 
             diffExists = false;
             #pragma omp parallel for reduction(|:diffExists)
             for (int i = 0; i < numIntervals; i++) {
                 diffExists |= diffs[i];
             }
-            count++;
-
-            if (debug) {
-                std::cout << "G Array:" << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << i << " ";
-                }
-                std::cout << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << G[i] << " ";
-                }
-                std::cout << std::endl;
-
-                std::cout << "GPrev Array:" << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << i << " ";
-                }
-                std::cout << std::endl;
-                for (int i = 0; i < numIntervals+1; i++) {
-                    std::cout << GPrev[i] << " ";
-                }
-                std::cout << std::endl;
-
-                std::cout << "END DEBUG" << std::endl;
-                std::cout << "----------------------------------------" << std::endl;
-            }
         }
 
-        for (int i = 0; i < numIntervals+1; i++) {
-            std::cout << i << " ";
-        }
-        std::cout << std::endl;
-        for (int i = 0 ; i < numIntervals+1; i++) {
-            std::cout << G[i] << " ";
-        }
-        std::cout << std::endl;
-
-        if (debug) std::cout << "count: " << std::to_string(count) << std::endl;
-
-        std::vector<Interval> soln;
-        return soln;
+        return G[numIntervals];
     }
 
 public:
@@ -292,18 +203,15 @@ public:
         parseInput(inputFileName);
     }
 
-    std::vector<Interval> run(std::string algoType) {
-        std::vector<Interval> soln;
+    int run(std::string algoType) {
         if (algoType == "seq") {
-            soln = wlisSeq();
-        } else if (algoType == "parbf") {
-            soln = wlisParBF();
-        } else if (algoType == "pardp") {
-            soln = wlisParDP();
+            return wlisSeq();
+        } else if (algoType == "par") {
+            return wlisPar();
         } else {
             // Invalid algoType, print error
+            return -1;
         }
-        return soln;
     }
 
 };
@@ -318,31 +226,22 @@ int main(int argc, char *argv[]) {
     wlis.init(argv[1]);
 
     auto t1 = high_resolution_clock::now();
-    // std::vector<Interval> soln = wlis.run("seq");
+    int seqResult = wlis.run("seq");
     auto t2 = high_resolution_clock::now();
     
-    // std::cout << "Sequential DP Solution:" << std::endl;
-    // for (int i = 0; i < soln.size(); i++) {
-    //     std::cout << soln.at(i).toString() << std::endl;
-    // }
-
     auto t3 = high_resolution_clock::now();
-    // wlis.run("parbf");
+    int parResult = wlis.run("par");
     auto t4 = high_resolution_clock::now();
 
-    auto t5 = high_resolution_clock::now();
-    wlis.run("pardp");
-    auto t6 = high_resolution_clock::now();
+    std::cout << "Sequential Result: " << std::to_string(seqResult) << std::endl; 
+    std::cout << "Parallel Result: " << std::to_string(parResult) << std::endl; 
 
     /* Getting number of milliseconds as an integer. */
     duration<double, std::milli> ms_double_seq = t2 - t1;
-    duration<double, std::milli> ms_double_par_bf = t4 - t3;
-    duration<double, std::milli> ms_double_par_dp = t6 - t5;
-
+    duration<double, std::milli> ms_double_par = t4 - t3;
 
     std::cout << ms_double_seq.count() << "ms\n";
-    std::cout << ms_double_par_bf.count() << "ms\n";
-    std::cout << ms_double_par_dp.count() << "ms\n";
+    std::cout << ms_double_par.count() << "ms\n";
 
     return 0;
 }
