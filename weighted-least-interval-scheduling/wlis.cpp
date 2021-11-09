@@ -133,7 +133,6 @@ class WLIS {
     int wlisPar() {
         // Settings
         int par_enabled = 1;
-        omp_set_num_threads(4);
 
         // First, sort the intervals in ascending order of their finish times
         std::vector<Interval> intervals = this->inputIntervals;
@@ -219,14 +218,12 @@ int main(int argc, char *argv[]) {
     using std::chrono::high_resolution_clock;
     using std::chrono::duration;
     using std::chrono::milliseconds;
+    std::cout.precision(8);
 
     int numTrials = 10;
     for (int i = 1; i < argc; i++) {
         WLIS wlis;
         wlis.init(argv[i]);
-
-        std::vector<duration<double, std::milli>> seq_durations;
-        std::vector<duration<double, std::milli>> par_durations;
 
         std::cout << "-----------------------------------" << std::endl;
         std::cout << "WLIS for test: " << argv[i] << std::endl;
@@ -244,9 +241,11 @@ int main(int argc, char *argv[]) {
             duration<double, std::milli> ms_double_seq = t2 - t1;
             duration<double, std::milli> ms_double_par = t4 - t3;
 
-            seq_durations.push_back(ms_double_seq);
-            par_durations.push_back(ms_double_par);
-            std::cout << ms_double_seq.count() << "\t" << ms_double_par.count() << std::endl;
+            if (seqResult != parResult) {
+                std::cout << "Incorrect results: Seq: " << std::to_string(seqResult) << " Par: " << std::to_string(parResult) << std::endl;
+            } else {
+                std::cout << std::fixed << ms_double_seq.count() << "\t" << ms_double_par.count() << std::endl;
+            }
         }
 
         std::cout << "-----------------------------------" << std::endl;
