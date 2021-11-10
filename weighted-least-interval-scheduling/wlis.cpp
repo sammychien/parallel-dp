@@ -63,6 +63,7 @@ namespace {
 class WLIS {
     
     std::vector<Interval> inputIntervals;
+    bool sorted = false;
 
     void parseInput(std::string inputFileName) {
         std::ifstream infile;
@@ -94,14 +95,17 @@ class WLIS {
     }
 
     int wlisSeq() {
-        // First, sort the intervals in ascending order of their finish times
         std::vector<Interval> intervals = this->inputIntervals;
         int numIntervals = intervals.size();
-        std::sort (intervals.begin(), intervals.end());
-        for (int i = 0; i < numIntervals; i++) {
-            intervals.at(i).setId(i);
-        }
 
+        // First, sort the intervals in ascending order of their finish times if not already sorted
+        if (!sorted) {
+            std::sort (intervals.begin(), intervals.end());
+            for (int i = 0; i < numIntervals; i++) {
+                intervals.at(i).setId(i);
+            }
+        }
+        
         // Next, calculate P(j), where P(j) is the rightmost interval i such that i and j are compatible (f_i <= s_j)
         int P [numIntervals];
         for (auto &interval : intervals) {
@@ -134,13 +138,16 @@ class WLIS {
         // Settings
         int par_enabled = 1;
 
-        // First, sort the intervals in ascending order of their finish times
         std::vector<Interval> intervals = this->inputIntervals;
         int numIntervals = intervals.size();
-        std::sort (intervals.begin(), intervals.end());
-        #pragma omp parallel for if(par_enabled)
-        for (int i = 0; i < numIntervals; i++) {
-            intervals.at(i).setId(i);
+
+        // First, sort the intervals in ascending order of their finish times if not already sorted
+        if (!sorted) {
+            std::sort (intervals.begin(), intervals.end());
+            #pragma omp parallel for if(par_enabled)
+            for (int i = 0; i < numIntervals; i++) {
+                intervals.at(i).setId(i);
+            }
         }
 
         // Next, calculate P(j), where P(j) is the rightmost interval i such that i and j are compatible (f_i <= s_j)
@@ -196,8 +203,17 @@ class WLIS {
 
 public:
 
-    void init(std::string inputFileName) {
+    void init(std::string inputFileName, bool shouldSort) {
         parseInput(inputFileName);
+
+        this->sorted = shouldSort;
+        if (shouldSort) {
+            int numIntervals = inputIntervals.size();
+            std::sort (inputIntervals.begin(), inputIntervals.end());
+            for (int i = 0; i < numIntervals; i++) {
+                inputIntervals.at(i).setId(i);
+            }
+        }
     }
 
     int run(std::string algoType) {
@@ -223,7 +239,7 @@ int main(int argc, char *argv[]) {
     int numTrials = 10;
     for (int i = 1; i < argc; i++) {
         WLIS wlis;
-        wlis.init(argv[i]);
+        wlis.init(argv[i], true);
 
         std::cout << "-----------------------------------" << std::endl;
         std::cout << "WLIS for test: " << argv[i] << std::endl;
