@@ -1,6 +1,6 @@
 #!/bin/bash
 
-g++ wlis.cpp -fopenmp -o main.out
+g++ wlis.cpp -fopenmp -o main.out -Wall
 
 export OMP_NUM_THREADS=4
 
