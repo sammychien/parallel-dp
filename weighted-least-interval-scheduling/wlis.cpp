@@ -9,9 +9,9 @@
 
 class Interval {
 public:
-    int weight;
     int start;
     int finish;
+    int weight;
     int id;
 
     Interval(int start, int finish, int weight) : 
