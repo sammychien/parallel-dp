@@ -1,5 +1,7 @@
 #!/bin/bash
 
-g++ main.cpp -fopenmp -o main.out
+g++ wlis.cpp -fopenmp -o main.out -Wall
 
-./main.out
+export OMP_NUM_THREADS=4
+
+(./main.out ./tests/10.txt ./tests/100.txt) > results.log
