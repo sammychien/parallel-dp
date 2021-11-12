@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <vector>
+#include <utility>
 #include <limits>
 #include <iostream>
 #include "omp.h"
