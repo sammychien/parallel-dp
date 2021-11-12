@@ -4,7 +4,7 @@
 #include <vector>
 #include "wlis.h"
 #include <algorithm>
-#include <map>
+#include <unordered_map>
 #include "omp.h"
 
 class Interval {
@@ -14,7 +14,7 @@ public:
     int weight;
     int id;
 
-    Interval(int start, int finish, int weight) : 
+    Interval(int start, int finish, int weight) :
         start(start), finish(finish), weight(weight) {
         this->id = -1;
     }
@@ -61,7 +61,7 @@ namespace {
 }
 
 class WLIS {
-    
+
     std::vector<Interval> inputIntervals;
     bool sorted = false;
 
@@ -82,7 +82,7 @@ class WLIS {
         }
     }
 
-    int getP(std::vector<Interval> intervals, Interval interval) {
+    int getP(std::vector<Interval> &intervals, Interval interval) {
         // Use binary search to find the correct interval
         Interval compatible(0, interval.start+1, 0);
         auto lower = std::lower_bound(intervals.begin(), intervals.end(), compatible);
@@ -105,7 +105,7 @@ class WLIS {
                 intervals.at(i).setId(i);
             }
         }
-        
+
         // Next, calculate P(j), where P(j) is the rightmost interval i such that i and j are compatible (f_i <= s_j)
         int P [numIntervals];
         for (auto &interval : intervals) {
@@ -113,8 +113,8 @@ class WLIS {
         }
 
         // Then, use the recurrence equation: OPT(j) = max(weight(j) + OPT(P[j]), OPT(j-1))
-        std::map<int, int> OPT { {-1, 0}, {0, 0}, };
-        std::map<int, std::vector<Interval>> OPT_path;
+        std::unordered_map<int, int> OPT { {-1, 0}, {0, 0}, };
+        std::unordered_map<int, std::vector<Interval>> OPT_path;
 
         for (int i = 0; i < numIntervals; i++) {
             Interval currentInterval = intervals.at(i);
@@ -138,15 +138,15 @@ class WLIS {
         // Settings
         int par_enabled = 1;
 
-        std::vector<Interval> intervals = this->inputIntervals;
-        int numIntervals = intervals.size();
+        // std::vector<Interval> intervals = this->inputIntervals;
+        int numIntervals = this->inputIntervals.size();
 
         // First, sort the intervals in ascending order of their finish times if not already sorted
         if (!sorted) {
-            std::sort (intervals.begin(), intervals.end());
+            std::sort (this->inputIntervals.begin(), this->inputIntervals.end());
             #pragma omp parallel for if(par_enabled)
             for (int i = 0; i < numIntervals; i++) {
-                intervals.at(i).setId(i);
+                this->inputIntervals.at(i).setId(i);
             }
         }
 
@@ -155,8 +155,8 @@ class WLIS {
         int P [numIntervals];
         #pragma omp parallel for if(par_enabled)
         for (int i = 0; i < numIntervals; i++) {
-            Interval interval = intervals.at(i);
-            P[i] = getP(intervals, interval);
+            Interval interval = this->inputIntervals.at(i);
+            P[i] = getP(this->inputIntervals, interval);
         }
 
         // Then, we use an LLP algorithm to find the global state G
@@ -177,14 +177,14 @@ class WLIS {
             {
                 #pragma omp for
                 for (int i = 0; i < numIntervals; i++) {
-                    GCalc[i] = std::max(intervals.at(i).weight + G[P[i]+1], G[i]);
+                    GCalc[i] = std::max(this->inputIntervals.at(i).weight + G[P[i]+1], G[i]);
                     if (GCalc[i] != G[i+1]) {
                         diffs[i] = true;
                     } else {
                         diffs[i] = false;
                     }
                 }
-                
+
                 #pragma omp for
                 for (int i = 0; i < numIntervals; i++) {
                     G[i+1] = GCalc[i];
@@ -192,9 +192,11 @@ class WLIS {
             }
 
             diffExists = false;
-            #pragma omp parallel for reduction(|:diffExists)
+            #pragma omp parallel for
             for (int i = 0; i < numIntervals; i++) {
-                diffExists |= diffs[i];
+                if (diffs[i]) {
+                    diffExists = true;
+                }
             }
         }
 
@@ -236,7 +238,7 @@ int main(int argc, char *argv[]) {
     using std::chrono::milliseconds;
     std::cout.precision(8);
 
-    int numTrials = 10;
+    int numTrials = 1;
     for (int i = 1; i < argc; i++) {
         WLIS wlis;
         wlis.init(argv[i], true);
@@ -244,11 +246,11 @@ int main(int argc, char *argv[]) {
         std::cout << "-----------------------------------" << std::endl;
         std::cout << "WLIS for test: " << argv[i] << std::endl;
         for (int trial = 1; trial <= numTrials; trial++) {
-            
+
             auto t1 = high_resolution_clock::now();
             int seqResult = wlis.run("seq");
             auto t2 = high_resolution_clock::now();
-            
+
             auto t3 = high_resolution_clock::now();
             int parResult = wlis.run("par");
             auto t4 = high_resolution_clock::now();
@@ -265,7 +267,7 @@ int main(int argc, char *argv[]) {
         }
 
         std::cout << "-----------------------------------" << std::endl;
-        
+
 
     }
     return 0;
