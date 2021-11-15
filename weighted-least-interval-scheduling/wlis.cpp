@@ -274,12 +274,10 @@ int main(int argc, char *argv[]) {
     using std::chrono::milliseconds;
     std::cout.precision(8);
 
-    int numTrials = 3;
+    int numTrials = 10;
     for (int i = 1; i < argc; i++) {
         WLIS wlis;
 
-        std::cout << "-----------------------------------" << std::endl;
-        std::cout << "WLIS for test: " << argv[i] << std::endl;
         for (int trial = 1; trial <= numTrials; trial++) {
 
             wlis.init(argv[i], true);
@@ -301,15 +299,21 @@ int main(int argc, char *argv[]) {
             duration<double, std::milli> ms_double_seq = t2 - t1;
             duration<double, std::milli> ms_double_par = t4 - t3;
             duration<double, std::milli> ms_double_parllp = t6 - t5;
+            
+            // Trim input file string 
+            std::string prefix = "./tests/";
+            std::string suffix = ".txt";
+            std::string s = argv[1];
+            s.erase(0, prefix.size());
+            s.erase(s.size() - suffix.size(), std::string::npos);
 
             if (seqResult == parResult && parResult == parllpResult) {
-                std::cout << std::fixed << ms_double_seq.count() << "\t" << ms_double_par.count() << "\t" << ms_double_parllp.count() << std::endl;
+                std::cout << std::fixed << s << "," << ms_double_seq.count() << "," << ms_double_par.count() << "," << ms_double_parllp.count() << std::endl;
             } else {
                 std::cout << "Incorrect results: Seq: " << std::to_string(seqResult) << " Par: " << std::to_string(parResult) << " ParLLP: " << std::to_string(parllpResult) << std::endl;
             }
         }
 
-        std::cout << "-----------------------------------" << std::endl;
 
 
     }
