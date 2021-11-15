@@ -268,7 +268,7 @@ public:
 };
 
 int main(int argc, char *argv[]) {
-
+    
     using std::chrono::high_resolution_clock;
     using std::chrono::duration;
     using std::chrono::milliseconds;
@@ -301,9 +301,9 @@ int main(int argc, char *argv[]) {
             duration<double, std::milli> ms_double_parllp = t6 - t5;
             
             // Trim input file string 
-            std::string prefix = "./tests/";
+            std::string prefix = "tests/";
             std::string suffix = ".txt";
-            std::string s = argv[1];
+            std::string s = argv[i];
             s.erase(0, prefix.size());
             s.erase(s.size() - suffix.size(), std::string::npos);
 
